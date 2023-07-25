@@ -6,4 +6,4 @@
 {"name":"momentum", "dtype":"float", "values":[0.0, 0.9], "step":0.05}
 {"name":"sample_alpha", "dtype":"float", "values":[0.0, 1.0], "step":0.1}
 {"name":"bpreg", "dtype":"float", "values":[0.0, 2.0], "step":0.05}
-{"name":"final_act", "dtype":"categorical", "values":["elu-0.5", "elu-1", "linear"]}
+{"name":"elu_param", "dtype":"categorical", "values":[0.5, 1, 0]}

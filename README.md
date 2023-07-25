@@ -1,4 +1,4 @@
-# GRU4Rec_PyTorch_Official
+# Official PyTorch implementation of GRU4Rec
 Official (re)implementation of the GRU4Rec [1,2] algorithm in PyTorch. The original Theano implementation is available at [https://github.com/hidasib/GRU4Rec](https://github.com/hidasib/GRU4Rec).
 
 Make sure to always use the latest version as baseline and cite [1,2] when you do so!
@@ -240,7 +240,7 @@ The performance of GRU4Rec has been measured on multiple different public datase
 - [Diginetica](https://competitions.codalab.org/competitions/11161#learn_the_details-data2)
 
 **Preprocessing:**  
-The details and the reasoning behind the preprocessing steps can be found in [1,2] for RSC15 and in [3] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. Preprocessing script for RSC15 can be found in the [original implementations repo](https://github.com/hidasib/GRU4Rec/blob/master/examples/rsc15/preprocess.py), and in (the repo corresponding to [3])[https://github.com/hidasib/gru4rec_third_party_comparison] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. After running the scrips, double check if the statistics of the resulting sets match what is reported in the papers.
+The details and the reasoning behind the preprocessing steps can be found in [1,2] for RSC15 and in [3] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. Preprocessing script for RSC15 can be found in the [original implementation's repo](https://github.com/hidasib/GRU4Rec/blob/master/examples/rsc15/preprocess.py), and in (the repo corresponding to [3])[https://github.com/hidasib/gru4rec_third_party_comparison] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. After running the scrips, double check if the statistics of the resulting sets match what is reported in the papers.
 
 Preprocessing scripts yield 4 files per dataset:
 - `train_full` --> full training set, used for training the model for the final evaluation (the pair of `train_full`)

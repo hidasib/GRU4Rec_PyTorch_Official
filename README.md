@@ -9,7 +9,7 @@ The purpose of this reimplementation is to provide an official version of the al
 [2] Balázs Hidasi, Alexandros Karatzoglou: [Recurrent Neural Networks with Top-k Gains for Session-based Recommendations](https://arxiv.org/abs/1706.03847), CIKM 2018  
 [3] Balázs Hidasi, Ádám Czapp: The Effect of Third Party Implementations on Reproducibility, RecSys 2023
 
-**LICENSE:** Coming soon!
+**LICENSE:** Final license is coming soon! Meanwhile, use the [license of the original](https://github.com/hidasib/GRU4Rec/blob/master/license.txt), i.e. free for research and education, but contact me for commercial use.
 
 **CONTENTS:**  
 [Diferences to the original](#diferences-to-the-original "Diferences to the original")  
@@ -31,7 +31,7 @@ The original Theano implementation has a lot of setting options, however some of
 
 | Option             | Defaults to | Effect                                                                                                               |
 |--------------------|:-----------:|----------------------------------------------------------------------------------------------------------------------|
-| `hidden_act`         |    `tanh`     | The activation function of the hiden layer is always tanh.                                                           |
+| `hidden_act`         |    `tanh`     | The activation function of the hidden layer is always tanh.                                                          |
 | `lmbd`               |     `0.0`     | L2 regularization is disabled, use dropout for regularization.                                                       |
 | `smoothing`          |     `0.0`     | Label smoothing for cross-entropy loss is removed as it had only a minor impact on performance.                      |
 | `adapt`              |   `adagrad`   | The oprimizer defaults to Adagrad (with Nesterov's momentum). Other optimizers might come back in the future.        |
@@ -43,20 +43,39 @@ The original Theano implementation has a lot of setting options, however some of
 | `time_sort`          |    `True`     | Training sessions are sorted in ascending order by the timestamp of their first event (oldest session first).        |
 
 ### Changed hyperparameters/settings
-The original implementation supports 4 losses, of which 2 are clearly superior. These losses are very different and work with diferent final activation functions. To make it harder to make mistakes here, the following changes have been made:
+The original implementation supports 4 losses, of which 2 are clearly superior. These losses are very different and work with different final activation functions. To make it harder to make mistakes here, the following changes have been made:
 - The `loss` hyperparameter can be only set to *cross-entropy* or *bpr-max* that result in GRU4Rec using the *cross-entropy loss over a softmax* final activation or the *BPR-max loss over ELU or linear* final activation respectively.
 - Since selecting the loss now determines the final activation (sort of), the `final_act` hyperparameter has been removed.
-- Instead, setting the parameter of the ELU (with BPR-Max loss) can be done through the `elu_param` parameter. Setting it to 0 makes it use linear activation instead (i.e. disable s the ELU). Other options (e.g. RELU) are no longer possible, but might come back in the future.
+- Instead, setting the parameter of the ELU (with BPR-Max loss) can be done through the `elu_param` parameter. Setting it to 0 makes it use linear activation instead (i.e. disables the ELU). Other options (e.g. RELU) are no longer possible, but might come back in the future.
 
 ## Speed of training
-Due to the differences between Theano and PyTorch, as well as the nature of GRU4Rec, you can experience a significant slowdown when switching to the PyTorch code. The difference is larger if dimensionalioty and/or minibatch size is *lower*. If you need cutting edge performance, give the Theano code a try. Even though Theano has been discontinued for several years, it still works perfectly fine, even with newer CUDA. Just make sure to follow to read the description of the original GRU4Rec carefully.
+Due to the differences between Theano and PyTorch, as well as the nature of GRU4Rec, you can experience a significant slowdown when switching to the PyTorch code. The difference is larger if the layer and/or minibatch size is *lower*. If you need cutting edge performance, give the Theano code a try. Even though Theano has been discontinued for several years, it still works perfectly fine, even with newer CUDA versions. Just make sure to follow to read the description of the original GRU4Rec carefully.
 
-*Details:* The short version is that the Theano requires you to build a computational graph and then a Theano function needs to be created that does the computations described by the graph. During the creation of the function, the required code is complied into a single (or sometimes more) C++/CUDA executables which are executed every time you call the function from Python. If you don't use any Python based operators, control doesn't need to be given back to Python which significantly lowers the overhead. The published version of GRU4Rec works on ID based representations and thus a single minibatch usually can't max out the GPU (and even if it can it is executed quickly). Therefore, having the overhead of passing control between C++/CUDA and Python can significantly increase training times. This is why the difference is smaller is the dimensionality and/or minibatch sizes are higher. Unfortunately, optimal performance sometimes requires smaller minibatches.
+*Details:* The short version is that Theano requires you to build a computational graph and then a Theano function needs to be created that does the computations described by the graph. During the creation of the function, the code is complied into a single (or sometimes more) C++/CUDA executables which are executed every time you call the function from Python. If you don't use any Python based operators, control doesn't need to be given back to Python which significantly lowers the overhead. The published version of GRU4Rec works on ID based representations and thus a single minibatch usually can't max out the GPU. Therefore, having the overhead of passing control between C++/CUDA and Python can significantly increase training times. This is why the difference is smaller if the layer and/or minibatch size is higher. But optimal performance sometimes requires smaller minibatches.
+
+Further optimization on this code might be also possible, however it is already faster than publicly available third-party reimplementations.
 
 ### Training time comparison
-The following figures show the difference between training speed (minibatch/second & event/second) for various minibatch sizes and hidden layer (and embedding) sizes with and without dropout (embedding & hidden) and momentum using `n_sample=0`. Measured on an nVidia A30.
+Time to complete one epoch (in seconds) on publicly available datasets with the best parameterization (see below), measured on an nVidia A30. The Theano version is 1.7-3 times faster.
+![image](img/training_time_public_data.png)
 
-*COMING SOON!*
+The following figures show the difference between training speed (minibatch/second & event/second; higher is better) for various minibatch and layer sizes with and without dropout and momentum enabled, using `n_sample=2048`. Measured on an nVidia A30.
+
+With `cross-entropy` loss:
+
+![image](img/training_time_xe_batch_size.png)
+
+![image](img/training_time_xe_layers.png)
+
+With `bpr-max` loss:
+
+![image](img/training_time_bprmax_batch_size.png)
+
+![image](img/training_time_bprmax_layers.png)
+
+The Theano version is 1.5-4x times faster depending on the settings. The figures also confirm that the difference is due to the larger overhead of PyTorch.
+
+PyTorch2 supports compilation that is supposed to eliminate the problem, however it does not work out of the box with this implementation and it is not clear why.
 
 ## Usage
 `run.py` is an easy way to train, evaluate and save/load GRU4Rec models.
@@ -165,7 +184,7 @@ Recall@20: 0.519616 MRR@20: 0.216372
 
 ```
 
-Train on `cuda:0` and save using model parameters from a parameter file (using different parameters than in the previous example).
+Train on `cuda:0` and save using model parameters from a parameter file.
 ```
 python run.py /path/to/training_data_file -pf /path/to/parameter_file.py -d cuda:0 -s /path/to/save_model.pickle.pt -d cuda:0
 ```
@@ -224,13 +243,13 @@ Recall@20: 0.519616 MRR@20: 0.216372
 ```
 
 ## Reproducing results on public datasets
-The performance of GRU4Rec has been measured on multiple different public datasets in [1,2,3,4]: Yoochoose/RSC15, Rees46, Coveo, RetailRocket and Diginetice.
+The performance of GRU4Rec has been measured on multiple public datasets in [1,2,3,4]: Yoochoose/RSC15, Rees46, Coveo, RetailRocket and Diginetica.
 
-*IMPORTANT:* Measuring performance of sequential recommenders makes sense only if the data (and the task) itself shows sequential patters, e.g. session based data. Evaluation on rating data doesn't give informative results. See [4] for details as well as for other common flaws people do during evaluation of sequential recommenders.
+*IMPORTANT:* Measuring performance of sequential recommenders makes sense only if the data (and the task) itself shows sequential patterns, e.g. session based data. Evaluation on rating data doesn't give informative results. See [4] for details as well as for other common flaws people do during evaluation of sequential recommenders.
 
 **Notes:**  
 - Always aim to include at least one realistically large dataset in your comparison (e.g. Rees46 is a good example).
-- The evaluation setup is described in detail in [1,2,3]. It is a next-item prediction type evaluation considering onyl the next item as relevant for a given session. This is a good setup for behaviour prediction and correlates somewhat with online performance. It is a stricter setup than considering any of the subsequent items as relevant, which - while a perfecly reasonable setup - is more forgiving towards simplistic (e.g. counting based) methods. However, similarly to any other offline evaluation it is not a direct approximation of online performance.
+- The evaluation setup is described in detail in [1,2,3]. It is a next-item prediction type evaluation considering only the next item as relevant for a given inference. This is a good setup for behaviour prediction and correlates somewhat with online performance. It is a stricter setup than considering any of the subsequent items as relevant, which - while a perfecly reasonable setup - is more forgiving towards simplistic (e.g. counting based) methods. However, similarly to any other offline evaluation it is not a direct approximation of online performance.
 
 **Getting the data:** Please refer to the original source of the data to obtain a full and legal copy. Links here are provided as best effort. It is not guaranteed that they won't break over time.
 - [Yoochoose/RSC15](https://2015.recsyschallenge.com) or ([reupload on Kaggle](https://www.kaggle.com/datasets/chadgostopp/recsys-challenge-2015))
@@ -240,11 +259,11 @@ The performance of GRU4Rec has been measured on multiple different public datase
 - [Diginetica](https://competitions.codalab.org/competitions/11161#learn_the_details-data2)
 
 **Preprocessing:**  
-The details and the reasoning behind the preprocessing steps can be found in [1,2] for RSC15 and in [3] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. Preprocessing script for RSC15 can be found in the [original implementation's repo](https://github.com/hidasib/GRU4Rec/blob/master/examples/rsc15/preprocess.py), and in (the repo corresponding to [3])[https://github.com/hidasib/gru4rec_third_party_comparison] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. After running the scrips, double check if the statistics of the resulting sets match what is reported in the papers.
+The details and the reasoning behind the preprocessing steps can be found in [1,2] for RSC15 and in [3] for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. Preprocessing script for RSC15 can be found in the [original implementation's repo](https://github.com/hidasib/GRU4Rec/blob/master/examples/rsc15/preprocess.py), and in [the repo corresponding to [3]](https://github.com/hidasib/gru4rec_third_party_comparison) for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica. After running the scripts, double check if the statistics of the resulting sets match what is reported in the papers.
 
 Preprocessing scripts yield 4 files per dataset:
-- `train_full` --> full training set, used for training the model for the final evaluation (the pair of `train_full`)
-- `test` --> test set for the final evaluation of the model
+- `train_full` --> full training set, used for training the model for the final evaluation 
+- `test` --> test set for the final evaluation of the model (the pair of `train_full`)
 - `train_tr` --> training set for hyperparameter optimization, experimentation
 - `train_valid` --> validation set for hyperparameter optimization, experimentation (the pair of `train_tr`)
 
@@ -258,9 +277,9 @@ Basically, the full preprocessed dataset is split into `train_full` and `test`, 
 [4] Balázs Hidasi, Ádám Czapp: Widespread Flaws in Offline Evaluation of Recommender Systems, RecSys 2023
 
 **Hyperparameters:**  
-Hyperparameters for RSC15 were obtained using a local (star) search optimizer with restarting when a better parameterization is found. It used a smaller parameter space than what is included in this repo (e.g. hidden layer size was fixed to 100). THere is room for some small potential improvement here with the new Optuna based optimizer.
+Hyperparameters for RSC15 were obtained using a local (star) search optimizer with restarting when a better parameterization is found. It used a smaller parameter space than what is included in this repo (e.g. hidden layer size was fixed to 100). Probably there is room for some small potential improvement here with the new Optuna based optimizer.
 
-Hyperparameters for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica were obtained using the parameter spaces uploaded to this repo. 200 runs were executed per dataset, embedding mode (no embedding, separate embedding, shared embedding) and loss function (cross-entropy, bpr-max). The primary metric was MRR@20 that usually also gave the best results wrt. recall@20. A separate train/validation set was used during parameter optimization that was created from the full training set the same way as the train/test split was created from the full dataset. Final results are measured on the test set with models trained on the full train set.
+Hyperparameters for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica were obtained using the parameter spaces uploaded to this repo. 200 runs were executed per dataset, per embedding mode (no embedding, separate embedding, shared embedding) and per loss function (cross-entropy, bpr-max). The primary metric was MRR@20 that usually also gave the best results wrt. recall@20. A separate training/validation set was used during parameter optimization that was created from the full training set the same way as the (full) training/test split was created from the full dataset. Final results are measured on the test set with models trained on the full training set.
 
 **Best hyperparameters:**  
 *Note:* Parameter files (usable with the `-pf` argument of `run.py`) are [included](https://github.com/hidasib/GRU4Rec_PyTorch_Official/tree/master/paramfiles) in this repo for convenience.
@@ -296,7 +315,7 @@ Hyperparameter optimization on new datasets is supported by `paropt.py`. Interna
 
 **Fixed parameters:** You can play around with these as well in the optimizer, however the following fixed settings have worked well in the past.  
 - `logq` --> Cross-entropy loss usually works the best with `logq=1`, the parameter has no effect when the BPR-max loss is used.
-- `n_sample` --> Based on experience, `n_sample=2048` is large enough to get good performance up to a few millions of items and not too large to significantly degrade the speed of training. However, you might want to lower this if the total number of active items is below 20K.
+- `n_sample` --> Based on experience, `n_sample=2048` is large enough to get good performance up to a few millions of items and not too large to significantly degrade the speed of training. However, you might want to lower this if the total number of active items is below 5-10K.
 - `n_epochs` --> This is usually set to `n_epochs=10`, but `5` gets you similar performance in most cases. So far there hasn't been any reason to significantly increase the number of epochs.
 - embedding mode --> Full paropt needs to check all three options separately, but in the past, shared embedding (`constrained_embedding=True` and `embedding=0`) worked the best for most datasets.
 - `loss` --> Full paropt needs to check both separately, but past experience indicates BPR-max to perform better on smaller and cross-entropy to perform better on larger datasets.
@@ -380,15 +399,16 @@ Loading training data...
 ```
 
 **Notes:** 
-- By default, Optuna logs to stderr and the model prints to stdout. You can use this to log the model training details and the summary of the optimization separately by adding `1>/path/to/model_training_details.log 2>/path/to/optimization.log` to your command. Alternatively, you can play around with Optuna's settings. GRU4Rec at the moment doesn't use proper logging (it just prints).
-- If you redirect stderr and/or stdout to file(s) and you want to see progress real time, use python in unbuffered mode, by adding the `-u` argument after python (i.e. `python -u paropt.py ...`).
+- By default, Optuna logs to stderr and the model prints to stdout. You can use this to log the model training details and the summary of the optimization separately by adding `1> /path/to/model_training_details.log 2> /path/to/optimization.log` to your command. Alternatively, you can play around with Optuna's settings. GRU4Rec at the moment doesn't use proper logging (it just prints).
+- If you redirect stderr and/or stdout to file(s) and you want to see progress in real time, use python in unbuffered mode, by adding the `-u` argument after `python` (i.e. `python -u paropt.py ...`).
 
 ## Requirements
 - **python** --> `3.8` or newer (tested with `3.8.12`)
 - **numpy** --> code was tested with `1.19.0`
 - **pandas** --> code was tested with `1.3.5`
 - **pytorch** --> code was tested with `1.12.1+cu113`
+- **optuna** --> (optional) for hyperparameter optimization, code was tested with `3.0.3`
 
 ## Major updates
-### Update 25-07-2023
+### Update 27-07-2023
 Initial version published.

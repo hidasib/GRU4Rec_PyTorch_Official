@@ -12,7 +12,7 @@ The purpose of this reimplementation is to provide an official version of the al
 **LICENSE:** Final license is coming soon! Meanwhile, use the [license of the original](https://github.com/hidasib/GRU4Rec/blob/master/license.txt), i.e. free for research and education, but contact me for commercial use.
 
 **CONTENTS:**  
-[Diferences to the original](#diferences-to-the-original "Diferences to the original")  
+[Differences to the original](#differences-to-the-original "Differences to the original")  
   [Removed hyperparameters/settings](#removed-hyperparameterssettings "Removed hyperparameters/settings")  
   [Changed hyperparameters/settings](#changed-hyperparameterssettings "Changed hyperparameters/settings")  
 [Speed of training](#speed-of-training "Speed of training")  
@@ -23,7 +23,7 @@ The purpose of this reimplementation is to provide an official version of the al
 [Hyperparameter tuning](#hyperparameter-tuning "Hyperparameter tuning")  
 [Major updates](#major-updates "Major updates")  
 
-## Diferences to the original
+## Differences to the original
 There are a few differences between the original and the PyTorch version.
 
 ### Removed hyperparameters/settings

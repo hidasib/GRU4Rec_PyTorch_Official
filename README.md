@@ -7,7 +7,7 @@ The purpose of this reimplementation is to provide an official version of the al
 
 [1] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, Domonkos Tikk: [Session-based Recommendations with Recurrent Neural Networks](https://arxiv.org/abs/1511.06939), ICLR 2016  
 [2] Balázs Hidasi, Alexandros Karatzoglou: [Recurrent Neural Networks with Top-k Gains for Session-based Recommendations](https://arxiv.org/abs/1706.03847), CIKM 2018  
-[3] Balázs Hidasi, Ádám Czapp: The Effect of Third Party Implementations on Reproducibility, RecSys 2023
+[3] Balázs Hidasi, Ádám Czapp: [The Effect of Third Party Implementations on Reproducibility](https://arxiv.org/abs/2307.14956), RecSys 2023
 
 **LICENSE:** Final license is coming soon! Meanwhile, use the [license of the original](https://github.com/hidasib/GRU4Rec/blob/master/license.txt), i.e. free for research and education, but contact me for commercial use.
 
@@ -273,8 +273,8 @@ Basically, the full preprocessed dataset is split into `train_full` and `test`, 
 
 [1] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, Domonkos Tikk: [Session-based Recommendations with Recurrent Neural Networks](https://arxiv.org/abs/1511.06939), ICLR 2016  
 [2] Balázs Hidasi, Alexandros Karatzoglou: [Recurrent Neural Networks with Top-k Gains for Session-based Recommendations](https://arxiv.org/abs/1706.03847), CIKM 2018  
-[3] Balázs Hidasi, Ádám Czapp: The Effect of Third Party Implementations on Reproducibility, RecSys 2023
-[4] Balázs Hidasi, Ádám Czapp: Widespread Flaws in Offline Evaluation of Recommender Systems, RecSys 2023
+[3] Balázs Hidasi, Ádám Czapp: [The Effect of Third Party Implementations on Reproducibility](https://arxiv.org/abs/2307.14956), RecSys 2023
+[4] Balázs Hidasi, Ádám Czapp: [Widespread Flaws in Offline Evaluation of Recommender Systems](https://arxiv.org/abs/2307.14951), RecSys 2023
 
 **Hyperparameters:**  
 Hyperparameters for RSC15 were obtained using a local (star) search optimizer with restarting when a better parameterization is found. It used a smaller parameter space than what is included in this repo (e.g. hidden layer size was fixed to 100). Probably there is room for some small potential improvement here with the new Optuna based optimizer.

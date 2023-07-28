@@ -55,6 +55,8 @@ Due to the differences between Theano and PyTorch, as well as the nature of GRU4
 
 Further optimization on this code might be also possible, however it is already faster than publicly available third-party reimplementations.
 
+PyTorch2 supports compilation that is supposed to eliminate the problem, however it does not seem to work with sparse embeddings and those are crucial here (and in any other model, where the number of embedded entities is significantly more than its portion used in a minibatch).
+
 ### Training time comparison
 Time to complete one epoch (in seconds) on publicly available datasets with the best parameterization (see below), measured on an nVidia A30. The Theano version is 1.7-3 times faster.
 ![image](img/training_time_public_data.png)
@@ -74,8 +76,6 @@ With `bpr-max` loss:
 ![image](img/training_time_bprmax_layers.png)
 
 The Theano version is 1.5-4x times faster depending on the settings. The figures also confirm that the difference is due to the larger overhead of PyTorch.
-
-PyTorch2 supports compilation that is supposed to eliminate the problem, however it does not work out of the box with this implementation and it is not clear why.
 
 ## Usage
 `run.py` is an easy way to train, evaluate and save/load GRU4Rec models.

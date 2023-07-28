@@ -13,6 +13,6 @@ gru4rec_params = OrderedDict([
 ('momentum', 0.2),
 ('n_sample', 2048),
 ('sample_alpha', 0.5),
-('bpreg', 0.0)
+('bpreg', 0.0),
 ('logq', 1.0)
 ])

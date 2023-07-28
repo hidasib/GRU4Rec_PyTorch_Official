@@ -3,7 +3,7 @@ gru4rec_params = OrderedDict([
 ('loss', 'bpr-max'),
 ('constrained_embedding', True),
 ('embedding', 0),
-('elu_param', 0),
+('elu_param', 0.5),
 ('layers', [224]),
 ('n_epochs', 10),
 ('batch_size', 80),

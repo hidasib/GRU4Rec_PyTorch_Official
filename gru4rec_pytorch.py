@@ -49,10 +49,9 @@ class IndexedAdagradM(Optimizer):
                 clr = group['lr']
                 momentum = group['momentum']
                 if grad.is_sparse:
-                    grad = grad.coalesce()  # the update is non-linear so indices must be unique
+                    grad = grad.coalesce()
                     grad_indices = grad._indices()[0]
                     grad_values = grad._values()
-                    size = grad.size()
                     accs = state['acc'][grad_indices] + grad_values.pow(2)
                     state['acc'].index_copy_(0, grad_indices, accs)
                     accs.add_(group['eps']).sqrt_().mul_(-1/clr)
@@ -83,21 +82,23 @@ class GRUEmbedding(nn.Module):
     def __init__(self, dim_in, dim_out):
         super(GRUEmbedding, self).__init__()
         self.Wx0 = nn.Embedding(dim_in, dim_out * 3, sparse=True)
-        self.Wh0 = nn.Parameter(torch.empty((dim_out, dim_out * 3), dtype=torch.float))
+        self.Wrz0 = nn.Parameter(torch.empty((dim_out, dim_out * 2), dtype=torch.float))
+        self.Wh0 = nn.Parameter(torch.empty((dim_out, dim_out * 1), dtype=torch.float))
         self.Bh0 = nn.Parameter(torch.zeros(dim_out * 3, dtype=torch.float))
         self.reset_parameters()
     def reset_parameters(self):
         init_parameter_matrix(self.Wx0.weight, dim1_scale = 3)
-        init_parameter_matrix(self.Wh0, dim1_scale = 3)
+        init_parameter_matrix(self.Wrz0, dim1_scale = 2)
+        init_parameter_matrix(self.Wh0, dim1_scale = 1)
         nn.init.zeros_(self.Bh0)
     def forward(self, X, H):
         Vx = self.Wx0(X) + self.Bh0
-        Vh = torch.mm(H, self.Wh0)
-        vx_x, vx_r, vx_z = Vx.chunk(3, 1) #TODO: Check sliced version speed
-        vh_x, vh_r, vh_z = Vh.chunk(3, 1)
+        Vrz = torch.mm(H, self.Wrz0)
+        vx_x, vx_r, vx_z = Vx.chunk(3, 1)
+        vh_r, vh_z = Vrz.chunk(2, 1)
         r = torch.sigmoid(vx_r + vh_r)
         z = torch.sigmoid(vx_z + vh_z)
-        h = torch.tanh(r * vh_x + vx_x) #TODO: This is not the same as dot(Wh,H * r)
+        h = torch.tanh(torch.mm(r * H, self.Wh0) + vx_x)
         h = (1.0 - z) * H + z * h
         return h
 
@@ -110,8 +111,6 @@ class GRU4RecModel(nn.Module):
         self.dropout_p_hidden = dropout_p_hidden
         self.embedding = embedding
         self.constrained_embedding = constrained_embedding
-        #self.E = nn.Embedding(0, 0, sparse=True) #placeholder for jit script
-        #self.GE = GRUEmbedding(0, 0)
         self.start = 0
         if constrained_embedding:
             n_input = layers[-1]
@@ -133,6 +132,7 @@ class GRU4RecModel(nn.Module):
         self.Wy = nn.Embedding(n_items, layers[-1], sparse=True)
         self.By = nn.Embedding(n_items, 1, sparse=True)
         self.reset_parameters()
+    @torch.no_grad()
     def reset_parameters(self):
         if self.embedding:
             init_parameter_matrix(self.E.weight)
@@ -167,8 +167,8 @@ class GRU4RecModel(nn.Module):
             m2 = []
             m2.append(self._init_numpy_weights((self.layers[0] , self.layers[0])))
             m2.append(self._init_numpy_weights((self.layers[0] , self.layers[0])))
-            m2.append(self._init_numpy_weights((self.layers[0] , self.layers[0])))
-            self.GE.Wh0.set_(torch.tensor(np.hstack(m2), device=self.GE.Wh0.device))
+            self.GE.Wrz0.set_(torch.tensor(np.hstack(m2), device=self.GE.Wrz0.device))
+            self.GE.Wh0.set_(torch.tensor(self._init_numpy_weights((self.layers[0] , self.layers[0])), device=self.GE.Wh0.device))
             self.GE.Bh0.set_(torch.zeros((self.layers[0]*3,), device=self.GE.Bh0.device))
         for i in range(self.start, len(self.layers)):
             m = []
@@ -185,7 +185,7 @@ class GRU4RecModel(nn.Module):
             self.G[i].bias_ih.set_(torch.zeros((self.layers[i]*3,), device=self.G[i].bias_ih.device))
         self.Wy.weight.set_(torch.tensor(self._init_numpy_weights((self.n_items, self.layers[-1])), device=self.Wy.weight.device))
         self.By.weight.set_(torch.zeros((self.n_items, 1), device=self.By.weight.device))
-    def embed_contrained(self, X, Y=None, training=False):
+    def embed_constrained(self, X, Y=None):
         if Y is not None:
             XY = torch.cat([X, Y])
             EXY = self.Wy(XY)
@@ -198,7 +198,7 @@ class GRU4RecModel(nn.Module):
             O = self.Wy.weight
             B = self.By.weight
         return E, O, B
-    def embed_separate(self, X, Y=None, training=False):
+    def embed_separate(self, X, Y=None):
         E = self.E(X)
         if Y is not None:
             O = self.Wy(Y)
@@ -207,7 +207,7 @@ class GRU4RecModel(nn.Module):
             O = self.Wy.weight
             B = self.By.weight
         return E, O, B
-    def embed_gru(self, X, H, Y=None, training=False):
+    def embed_gru(self, X, H, Y=None):
         E = self.GE(X, H)
         if Y is not None:
             O = self.Wy(Y)
@@ -216,17 +216,13 @@ class GRU4RecModel(nn.Module):
             O = self.Wy.weight
             B = self.By.weight
         return E, O, B
-    def embed(self, X, H, Y=None, training=False):
+    def embed(self, X, H, Y=None):
         if self.constrained_embedding:
-            E, O, B = self.embed_contrained(X, Y, training)
+            E, O, B = self.embed_constrained(X, Y)
         elif self.embedding > 0:
-            E, O, B = self.embed_separate(X, Y, training)
+            E, O, B = self.embed_separate(X, Y)
         else:
-            E, O, B = self.embed_gru(X, H[0], Y, training)
-        if training: 
-            E = self.DE(E)
-        if not (self.constrained_embedding or self.embedding):
-            H[0] = E
+            E, O, B = self.embed_gru(X, H[0], Y)
         return E, O, B
     def hidden_step(self, X, H, training=False):
         for i in range(self.start, len(self.layers)):
@@ -239,7 +235,11 @@ class GRU4RecModel(nn.Module):
         O = torch.mm(X, O.T) + B.T
         return O
     def forward(self, X, H, Y, training=False):
-        E, O, B = self.embed(X, H, Y, training=training)
+        E, O, B = self.embed(X, H, Y)
+        if training: 
+            E = self.DE(E)
+        if not (self.constrained_embedding or self.embedding):
+            H[0] = E
         Xh = self.hidden_step(E, H, training=training)
         R = self.score_items(Xh, O, B)
         return R
@@ -276,20 +276,29 @@ class SampleCache:
         return sample
 
 class SessionDataIterator:
-    def __init__(self, data, batch_size, n_sample=0, sample_alpha=0.75, sample_cache_max_size=10000000, item_key='ItemId', session_key='SessionId', time_key='Time', session_order='time', device=torch.device('cuda:0')):
+    def __init__(self, data, batch_size, n_sample=0, sample_alpha=0.75, sample_cache_max_size=10000000, item_key='ItemId', session_key='SessionId', time_key='Time', session_order='time', device=torch.device('cuda:0'), itemidmap=None):
         self.device = device
         self.batch_size = batch_size
-        self.data = data
-        self.sort_if_needed(self.data, [session_key, time_key])
-        self.offset_sessions = self.compute_offset(self.data, session_key)
+        if itemidmap is None:
+            itemids = data[item_key].unique()
+            self.n_items = len(itemids)
+            self.itemidmap = pd.Series(data=np.arange(self.n_items, dtype='int32'), index=itemids, name='ItemIdx')
+        else:
+            print('Using existing item ID map')
+            self.itemidmap = itemidmap
+            self.n_items = len(itemidmap)
+            in_mask = data[item_key].isin(itemidmap.index.values)
+            n_not_in = (~in_mask).sum()
+            if n_not_in > 0:
+                #print('{} rows of the data contain unknown items and will be filtered'.format(n_not_in))
+                data = data.drop(data.index[~in_mask])
+        self.sort_if_needed(data, [session_key, time_key])
+        self.offset_sessions = self.compute_offset(data, session_key)
         if session_order == 'time':
-            self.session_idx_arr = np.argsort(self.data.groupby(session_key)[time_key].min().values)
+            self.session_idx_arr = np.argsort(data.groupby(session_key)[time_key].min().values)
         else:
             self.session_idx_arr = np.arange(len(self.offset_sessions) - 1)
-        itemids = self.data[item_key].unique()
-        self.n_items = len(itemids)
-        self.itemidmap = pd.Series(data=np.arange(self.n_items), index=itemids, name='ItemIdx')
-        self.data_items = self.itemidmap[self.data[item_key].values].values
+        self.data_items = self.itemidmap[data[item_key].values].values
         if n_sample > 0:
             pop = data.groupby(item_key).size()
             pop = pop[self.itemidmap.index.values].values**sample_alpha
@@ -327,32 +336,21 @@ class SessionDataIterator:
         offset[1:] = data.groupby(column).size().cumsum()
         return offset
 
-    def __iter__(self):
-        return self._iter_data(self.batch_size, self.data, self.offset_sessions, self.session_idx_arr, self.data_items, hasattr(self, 'sample_cache'))
-
-    def iter_data(self, data, batch_size, item_key='ItemId', session_key='SessionId', time_key='Time', session_order=None):
-        data = data[data[item_key].isin(self.itemidmap.index.values)]
-        self.sort_if_needed(data, [session_key, time_key])
-        offset_sessions = self.compute_offset(data, session_key)
-        if session_order == 'time':
-            session_idx_arr = np.argsort(data.groupby(session_key)[time_key].min().values)
-        else:
-            session_idx_arr = np.arange(len(offset_sessions) - 1)
-        data_items = self.itemidmap[data[item_key].values].values
-        return self._iter_data(batch_size, data, offset_sessions, session_idx_arr, data_items, False)
-
-    def _iter_data(self, batch_size, data, offset_sessions, session_idx_arr, data_items, enable_neg_samples=False):
+    def __call__(self, enable_neg_samples, reset_hook=None):
+        batch_size = self.batch_size
         iters = np.arange(batch_size)
         maxiter = iters.max()
-        start = offset_sessions[session_idx_arr[iters]]
-        end = offset_sessions[session_idx_arr[iters]+1]
+        start = self.offset_sessions[self.session_idx_arr[iters]]
+        end = self.offset_sessions[self.session_idx_arr[iters]+1]
         finished = False
+        valid_mask = np.ones(batch_size, dtype='bool')
+        n_valid = self.batch_size
         while not finished:
             minlen = (end-start).min()
-            out_idx = torch.tensor(data_items[start], requires_grad=False, device=self.device)
+            out_idx = torch.tensor(self.data_items[start], requires_grad=False, device=self.device)
             for i in range(minlen-1):
                 in_idx = out_idx
-                out_idx = torch.tensor(data_items[start+i+1], requires_grad=False, device=self.device)
+                out_idx = torch.tensor(self.data_items[start+i+1], requires_grad=False, device=self.device)
                 if enable_neg_samples:
                     sample = self.sample_cache.get_sample()
                     y = torch.cat([out_idx, sample])
@@ -364,21 +362,22 @@ class SessionDataIterator:
             n_finished = finished_mask.sum()
             iters[finished_mask] = maxiter + np.arange(1,n_finished+1)
             maxiter += n_finished
-            valid_mask = (iters < len(offset_sessions)-1)
+            valid_mask = (iters < len(self.offset_sessions)-1)
             n_valid = valid_mask.sum()
             if n_valid == 0:
                 finished = True
                 break
             mask = finished_mask & valid_mask
-            sessions = session_idx_arr[iters[mask]]
-            start[mask] = offset_sessions[sessions]
-            end[mask] = offset_sessions[sessions+1]
+            sessions = self.session_idx_arr[iters[mask]]
+            start[mask] = self.offset_sessions[sessions]
+            end[mask] = self.offset_sessions[sessions+1]
             iters = iters[valid_mask]
             start = start[valid_mask]
             end = end[valid_mask]
-            yield n_valid, finished_mask, valid_mask
+            if reset_hook is not None:
+                finished = reset_hook(n_valid, finished_mask, valid_mask)
 
-class GRU4Rec: #TODO: final_act az elu_param helyett
+class GRU4Rec:
     def __init__(self, layers=[100], loss='cross-entropy', batch_size=64, dropout_p_embed=0.0,
                  dropout_p_hidden=0.0, learning_rate=0.05, momentum=0.0, sample_alpha=0.5, n_sample=2048, embedding=0,
                  constrained_embedding=True, n_epochs=10, bpreg=1.0, elu_param=0.5, logq=0.0, device=torch.device('cuda:0')):
@@ -456,7 +455,7 @@ class GRU4Rec: #TODO: final_act az elu_param helyett
         model = GRU4RecModel(self.data_iterator.n_items, self.layers, self.dropout_p_embed, self.dropout_p_hidden, self.embedding, self.constrained_embedding).to(self.device)
         if compatibility_mode: 
             model._reset_weights_to_compatibility_mode()
-        self.model = model #torch.jit.script(model)
+        self.model = model
         opt = IndexedAdagradM(self.model.parameters(), self.learning_rate, self.momentum)
         for epoch in range(self.n_epochs):
             t0 = time.time()
@@ -466,30 +465,21 @@ class GRU4Rec: #TODO: final_act az elu_param helyett
             c = []
             cc = []
             n_valid = self.batch_size
-            for d in self.data_iterator:
-                if len(d) == 2:
-                    for h in H: h.detach_()
-                    self.model.zero_grad()
-                    R = self.model.forward(d[0], H, d[1], training=True)
-                    L = self.loss_function(R, d[1], n_valid) / self.batch_size
-                    L.backward()
-                    opt.step()
-                    L = L.cpu().detach().numpy()
-                    c.append(L)
-                    cc.append(n_valid)
-                    if np.isnan(L):
-                        print(str(epoch) + ': NaN error!')
-                        self.error_during_train = True
-                        return
-                else:
-                    n_valid, finished_mask, valid_mask = d
-                    if (self.n_sample == 0) and (n_valid < 2): break
-                    with torch.no_grad():
-                        for i in range(len(self.layers)):
-                            H[i][finished_mask] = 0
-                    if n_valid < len(valid_mask):
-                        for i in range(len(H)):
-                            H[i] = H[i][valid_mask]
+            reset_hook = lambda n_valid, finished_mask, valid_mask: self._adjust_hidden(n_valid, finished_mask, valid_mask, H)
+            for in_idx, out_idx in self.data_iterator(enable_neg_samples=(self.n_sample>0), reset_hook=reset_hook):
+                for h in H: h.detach_()
+                self.model.zero_grad()
+                R = self.model.forward(in_idx, H, out_idx, training=True)
+                L = self.loss_function(R, out_idx, n_valid) / self.batch_size
+                L.backward()
+                opt.step()
+                L = L.cpu().detach().numpy()
+                c.append(L)
+                cc.append(n_valid)
+                if np.isnan(L):
+                    print(str(epoch) + ': NaN error!')
+                    self.error_during_train = True
+                    return
             c = np.array(c)
             cc = np.array(cc)
             avgc = np.sum(c * cc) / np.sum(cc)
@@ -500,6 +490,16 @@ class GRU4Rec: #TODO: final_act az elu_param helyett
             t1 = time.time()
             dt = t1 - t0
             print('Epoch{} --> loss: {:.6f} \t({:.2f}s) \t[{:.2f} mb/s | {:.0f} e/s]'.format(epoch+1, avgc, dt, len(c)/dt, np.sum(cc)/dt))
+    def _adjust_hidden(self, n_valid, finished_mask, valid_mask, H):
+        if (self.n_sample == 0) and (n_valid < 2):
+            return True
+        with torch.no_grad():
+            for i in range(len(self.layers)):
+                H[i][finished_mask] = 0
+        if n_valid < len(valid_mask):
+            for i in range(len(H)):
+                H[i] = H[i][valid_mask]
+        return False
     def to(self, device):
         if type(device) == str:
             device = torch.device(device)

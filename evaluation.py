@@ -1,3 +1,4 @@
+from gru4rec_pytorch import SessionDataIterator
 import torch
 
 @torch.no_grad()
@@ -13,30 +14,21 @@ def batch_eval(gru, test_data, cutoff=[20], batch_size=512, mode='conservative',
     for i in range(len(gru.layers)):
         H.append(torch.zeros((batch_size, gru.layers[i]), requires_grad=False, device=gru.device, dtype=torch.float32))
     n = 0
-    ii = 0
-    n_valid = batch_size
-    for d in gru.data_iterator.iter_data(test_data, batch_size, item_key=item_key, session_key=session_key, time_key=time_key, session_order=None):
-        if len(d) == 2:
-            for h in H: h.detach_()
-            O = gru.model.forward(d[0], H, None, training=False)
-            oscores = O.T
-            tscores = torch.diag(oscores[d[1]])
-            if mode == 'standard': ranks = (oscores > tscores).sum(dim=0) + 1
-            elif mode == 'conservative': ranks = (oscores >= tscores).sum(dim=0)
-            elif mode == 'median':  ranks = (oscores > tscores).sum(dim=0) + 0.5*((oscores == tscores).dim(axis=0) - 1) + 1
-            else: raise NotImplementedError
-            for c in cutoff:
-                recall[c] += (ranks <= c).sum().cpu().numpy()
-                mrr[c] += ((ranks <= c) / ranks.float()).sum().cpu().numpy()
-            n += n_valid
-            ii += 1
-        else:
-            n_valid, finished_mask, valid_mask = d
-            for i in range(len(gru.layers)):
-                H[i][finished_mask] = 0
-            if n_valid < len(valid_mask):
-                for i in range(len(H)):
-                    H[i] = H[i][valid_mask]
+    reset_hook = lambda n_valid, finished_mask, valid_mask: gru._adjust_hidden(n_valid, finished_mask, valid_mask, H)
+    data_iterator = SessionDataIterator(test_data, batch_size, 0, 0, 0, item_key, session_key, time_key, device=gru.device, itemidmap=gru.data_iterator.itemidmap)
+    for in_idxs, out_idxs in data_iterator(enable_neg_samples=False, reset_hook=reset_hook):
+        for h in H: h.detach_()
+        O = gru.model.forward(in_idxs, H, None, training=False)
+        oscores = O.T
+        tscores = torch.diag(oscores[out_idxs])
+        if mode == 'standard': ranks = (oscores > tscores).sum(dim=0) + 1
+        elif mode == 'conservative': ranks = (oscores >= tscores).sum(dim=0)
+        elif mode == 'median':  ranks = (oscores > tscores).sum(dim=0) + 0.5*((oscores == tscores).dim(axis=0) - 1) + 1
+        else: raise NotImplementedError
+        for c in cutoff:
+            recall[c] += (ranks <= c).sum().cpu().numpy()
+            mrr[c] += ((ranks <= c) / ranks.float()).sum().cpu().numpy()
+        n += O.shape[0]
     for c in cutoff:
         recall[c] /= n
         mrr[c] /= n

@@ -1,5 +1,5 @@
 # Official PyTorch implementation of GRU4Rec
-Official (re)implementation of the GRU4Rec [1,2] algorithm in PyTorch. The original Theano implementation is available at [https://github.com/hidasib/GRU4Rec](https://github.com/hidasib/GRU4Rec).
+Official (re)implementation of the GRU4Rec [1,2] algorithm in **PyTorch**. The **original Theano** implementation is available at [https://github.com/hidasib/GRU4Rec](https://github.com/hidasib/GRU4Rec). If you are looking for the official **Tensorflow** (re)implementation, you can find it at [https://github.com/hidasib/GRU4Rec_Tensorflow_Official](https://github.com/hidasib/GRU4Rec_Tensorflow_Official).
 
 Make sure to always use the latest version as baseline and cite [1,2] when you do so!
 
@@ -58,7 +58,7 @@ Further optimization on this code might be also possible, however it is already 
 PyTorch2 supports compilation that is supposed to eliminate the problem, however it does not seem to work with sparse embeddings and those are crucial here (and in any other model, where the number of embedded entities is significantly more than its portion used in a minibatch).
 
 ### Training time comparison
-Time to complete one epoch (in seconds) on publicly available datasets with the best parameterization (see below), measured on an nVidia A30. The Theano version is 1.7-3 times faster.
+Time to complete one epoch (in seconds) on publicly available datasets with the best parameterization (see below), measured on an nVidia A30. The Theano version is 1.7-3 times faster.  The PyTorch implementation is on par with the Tensorflow version w.r.t. speed.
 ![image](img/training_time_public_data.png)
 
 The following figures show the difference between training speed (minibatch/second & event/second; higher is better) for various minibatch and layer sizes with and without dropout and momentum enabled, using `n_sample=2048`. Measured on an nVidia A30.
@@ -88,7 +88,7 @@ $ python run.py -h
 
 Output:
 ```
-usage: run.py [-h] [-ps PARAM_STRING] [-pf PARAM_PATH] [-l] [-s MODEL_PATH] [-t TEST_PATH [TEST_PATH ...]] [-m AT [AT ...]] [-e EVAL_TYPE] [-ss SS] [-g GRFILE] [-d D] [-ik IK] [-sk SK] [-tk TK] [-pm METRIC] [-lpm] PATH
+usage: run.py [-h] [-ps PARAM_STRING] [-pf PARAM_PATH] [-l] [-s MODEL_PATH] [-t TEST_PATH [TEST_PATH ...]] [-m AT [AT ...]] [-e EVAL_TYPE] [-ss SS] [-g GRFILE] [-d DEVICE] [-ik IK] [-sk SK] [-tk TK] [-pm METRIC] [-lpm] PATH
 
 Train or load a GRU4Rec model & measure recall and MRR on the specified test set(s).
 
@@ -120,7 +120,8 @@ optional arguments:
                         Unless you know what you are doing, you shouldn't mess with this parameter. (Default: 10000000)
   -g GRFILE, --gru4rec_model GRFILE
                         Name of the file containing the GRU4Rec class. Can be used to select different varaiants. (Default: gru4rec_pytorch)
-  -d D, --device D      Device used for computations (default: cuda:0).
+  -d DEVICE, --device DEVICE
+                        Device used for computations (default: cuda:0).
   -ik IK, --item_key IK
                         Column name corresponding to the item IDs (detault: ItemId).
   -sk SK, --session_key SK
@@ -175,6 +176,7 @@ Total training time: 226.73s
 Loading test data...
 Loading data from TAB separated file:  /path/to/test_data_file
 Starting evaluation (cut-off=[1, 5, 10, 20], using conservative mode for tiebreaking)
+Using existing item ID map
 The dataframe is already sorted by SessionId, Time
 Evaluation took 0.49s
 Recall@1: 0.125334 MRR@1: 0.125334
@@ -186,7 +188,7 @@ Recall@20: 0.519616 MRR@20: 0.216372
 
 Train on `cuda:0` and save using model parameters from a parameter file.
 ```
-python run.py /path/to/training_data_file -pf /path/to/parameter_file.py -d cuda:0 -s /path/to/save_model.pickle.pt -d cuda:0
+python run.py /path/to/training_data_file -pf /path/to/parameter_file.py -s /path/to/save_model.pickle.pt -d cuda:0
 ```
 Output (on the RetailRocket dataset):
 ```
@@ -233,6 +235,7 @@ Loading trained model from file: /path/to/save_model.pt (to device "cuda:1")
 Loading test data...
 Loading data from TAB separated file: /path/to/test_data_file
 Starting evaluation (cut-off=[1, 5, 10, 20], using conservative mode for tiebreaking)
+Using existing item ID map
 The dataframe is already sorted by SessionId, Time
 Evaluation took 1.31s
 Recall@1: 0.125334 MRR@1: 0.125334
@@ -273,7 +276,7 @@ Basically, the full preprocessed dataset is split into `train_full` and `test`, 
 
 [1] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, Domonkos Tikk: [Session-based Recommendations with Recurrent Neural Networks](https://arxiv.org/abs/1511.06939), ICLR 2016  
 [2] Balázs Hidasi, Alexandros Karatzoglou: [Recurrent Neural Networks with Top-k Gains for Session-based Recommendations](https://arxiv.org/abs/1706.03847), CIKM 2018  
-[3] Balázs Hidasi, Ádám Czapp: [The Effect of Third Party Implementations on Reproducibility](https://arxiv.org/abs/2307.14956), RecSys 2023
+[3] Balázs Hidasi, Ádám Czapp: [The Effect of Third Party Implementations on Reproducibility](https://arxiv.org/abs/2307.14956), RecSys 2023  
 [4] Balázs Hidasi, Ádám Czapp: [Widespread Flaws in Offline Evaluation of Recommender Systems](https://arxiv.org/abs/2307.14951), RecSys 2023
 
 **Hyperparameters:**  
@@ -299,11 +302,11 @@ Hyperparameters for Yoochoose, Rees46, Coveo, RetailRocket and Diginetica were o
 | Dataset | Recall@1 | MRR@1 | Recall@5 | MRR@5 | Recall@10 | MRR@10 | Recall@20 | MRR@20 |
 |---|---|---|---|---|---|---|---|---|
 | RSC15 | 0.1845 | 0.1845 | 0.4906 | 0.2954 | 0.6218 | 0.3130 | 0.7283 | 0.3205 |
-| Yoochoose | 0.1897 | 0.1897 | 0.4464 | 0.2824 | 0.5668 | 0.2986 | 0.6719 | 0.3059 | 0.1829 | 0.1829 | 0.4478 | 0.2783 | 0.5715 | 0.2949 | 0.6789 | 0.3024 |
-| Rees46 | 0.1123 | 0.1123 | 0.3029 | 0.1791 | 0.4141 | 0.1939 | 0.5301 | 0.2020 | 0.1114 | 0.1114 | 0.3010 | 0.1778 | 0.4135 | 0.1928 | 0.5293 | 0.2008 |
-| Coveo | 0.0538 | 0.0538 | 0.1523 | 0.0876 | 0.2241 | 0.0971 | 0.3136 | 0.1033 | 0.0513 | 0.0513 | 0.1496 | 0.0852 | 0.2212 | 0.0946 | 0.3135 | 0.1010 |
-| ReatilRocket | 0.1321 | 0.1321 | 0.3174 | 0.1980 | 0.4148 | 0.2110 | 0.5109 | 0.2177 | 0.1274 | 0.1274 | 0.3237 | 0.1977 | 0.4207 | 0.2107 | 0.5186 | 0.2175 |
-| Diginetica | 0.0727 | 0.0727 | 0.2317 | 0.1272 | 0.3505 | 0.1429 | 0.4933 | 0.1528 | 0.0725 | 0.0725 | 0.2369 | 0.1288 | 0.3542 | 0.1442 | 0.4995 | 0.1542 |
+| Yoochoose | 0.1829 | 0.1829 | 0.4478 | 0.2783 | 0.5715 | 0.2949 | 0.6789 | 0.3024 |
+| Rees46 | 0.1114 | 0.1114 | 0.3010 | 0.1778 | 0.4135 | 0.1928 | 0.5293 | 0.2008 |
+| Coveo | 0.0513 | 0.0513 | 0.1496 | 0.0852 | 0.2212 | 0.0946 | 0.3135 | 0.1010 |
+| ReatilRocket |  0.1274 | 0.1274 | 0.3237 | 0.1977 | 0.4207 | 0.2107 | 0.5186 | 0.2175 |
+| Diginetica | 0.0725 | 0.0725 | 0.2369 | 0.1288 | 0.3542 | 0.1442 | 0.4995 | 0.1542 |
 
 
 ## Hyperparameter tuning
@@ -327,7 +330,7 @@ $ python paropt.py -h
 
 Output:
 ```
-usage: paropt.py [-h] [-g GRFILE] [-fp PARAM_STRING] [-opf PATH] [-m [AT]] [-nt [NT]] [-fm [AT [AT ...]]] [-pm METRIC] [-e EVAL_TYPE] [-d D] [-ik IK] [-sk SK] [-tk TK] PATH TEST_PATH
+usage: paropt.py [-h] [-g GRFILE] [-fp PARAM_STRING] [-opf PATH] [-m [AT]] [-nt [NT]] [-fm [AT [AT ...]]] [-pm METRIC] [-e EVAL_TYPE] [-d D] [-ik IK] [-sk SK] [-tk TK] [-d DEVICE] PATH TEST_PATH
 
 Train or load a GRU4Rec model & measure recall and MRR on the specified test set(s).
 
@@ -357,7 +360,8 @@ optional arguments:
   -e EVAL_TYPE, --eval_type EVAL_TYPE
                         Sets how to handle if multiple items in the ranked list have the same prediction score (which is usually due to saturation or an error). See the documentation of evaluate_gpu() in evaluation.py for further
                         details. (Default: standard)
-  -d D, --device D      Device used for computations (default: cuda:0).
+  -d DEVICE, --device DEVICE
+                        Device used for computations (default: cuda:0).
   -ik IK, --item_key IK
                         Column name corresponding to the item IDs (detault: ItemId).
   -sk SK, --session_key SK

@@ -188,7 +188,7 @@ Recall@20: 0.519616 MRR@20: 0.216372
 
 Train on `cuda:0` and save using model parameters from a parameter file.
 ```
-python run.py /path/to/training_data_file -pf /path/to/parameter_file.py -s /path/to/save_model.pickle.pt -d cuda:0
+python run.py /path/to/training_data_file -pf /path/to/parameter_file.py -s /path/to/save_model.pt -d cuda:0
 ```
 Output (on the RetailRocket dataset):
 ```

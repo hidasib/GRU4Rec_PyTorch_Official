@@ -38,7 +38,7 @@ import importlib
 import re
 
 def generate_command(optimized_param_str):
-    command = 'python run.py {} -t {} -g {} -ps {},{} -m {} -pm {} -lpm -e {} -d {} -ik {} -sk {} -tk {}'.format(args.path, args.test, args.gru4rec_model, args.fixed_parameters, optimized_param_str, args.measure, args.primary_metric, args.eval_type, args.device, args.item_key, args.session_key, args.time_key)
+    command = 'python run.py "{}" -t "{}" -g {} -ps {},{} -m {} -pm {} -lpm -e {} -d {} -ik {} -sk {} -tk {}'.format(args.path, args.test, args.gru4rec_model, args.fixed_parameters, optimized_param_str, args.measure, args.primary_metric, args.eval_type, args.device, args.item_key, args.session_key, args.time_key)
     return command
 
 def run_once(optimized_param_str):
@@ -110,7 +110,7 @@ study.optimize(lambda trial: objective(trial, par_space), n_trials=args.ntrials)
 
 print('Running final eval @{}:'.format(args.final_measure))
 optimized_param_str = ','.join(['{}={}'.format(k,v) for k,v in study.best_params.items()])
-command = 'python run.py {} -t {} -g {} -ps {},{} -m {} -e {} -d {} -ik {} -sk {} -tk {}'.format(args.path, args.test, args.gru4rec_model, args.fixed_parameters, optimized_param_str, ' '.join([str(x) for x in args.final_measure]), args.eval_type, args.device, args.item_key, args.session_key, args.time_key)
+command = 'python run.py "{}" -t "{}" -g {} -ps {},{} -m {} -e {} -d {} -ik {} -sk {} -tk {}'.format(args.path, args.test, args.gru4rec_model, args.fixed_parameters, optimized_param_str, ' '.join([str(x) for x in args.final_measure]), args.eval_type, args.device, args.item_key, args.session_key, args.time_key)
 cmd = pexpect.spawnu(command, timeout=None, maxread=1)
 line = cmd.readline()
 while line:

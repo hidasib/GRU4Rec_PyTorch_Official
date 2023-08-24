@@ -19,6 +19,7 @@ The purpose of this reimplementation is to provide an official version of the al
   [Training time comparison](#training-time-comparison "Training time comparison")  
 [Usage](#usage "Usage")  
   [Examples](#examples "Examples")  
+  [Notes on sequence-aware and session-based models](#notes-on-sequence-aware-and-session-based-models "Notes on sequence-aware and session-based models")  
 [Reproducing results on public datasets](#reproducing-results-on-public-datasets "Reproducing results on public datasets")  
 [Hyperparameter tuning](#hyperparameter-tuning "Hyperparameter tuning")  
 [Major updates](#major-updates "Major updates")  
@@ -244,6 +245,15 @@ Recall@10: 0.421153 MRR@10: 0.209505
 Recall@20: 0.519616 MRR@20: 0.216372
 
 ```
+
+### Notes on sequence-aware and session-based models
+GRU4Rec is originally for session-based recommendations, where the generally short sessions are considered independent. Every time a user comes to the site, they are considered to be unknown, i.e. nothing of their history is used, even if it is known. (This setup is great for many real-life applications.) This means that when the model is evaluated, the hidden state starts from zero for each test session.
+
+However, RNN (CNN, Transformer, etc.) based models are also a great fit for the practically less important sequence-aware personalized recommendation setup (i.e. the whole user history is used as a sequence to predict future items in the sequence). There are two main differences: 
+- (1) The sequences are significantly longer in sequence-aware recommendations. This also means that BPTT (backpropagation through time) is useful in this scenario. For session-based recommendations, experiments suggest that BPTT doesn't improve the model.
+- (2) Evaluation in the sequence-aware setup should be started from the last value of the hidden state (i.e. the value computed on the training portion of the user history).
+
+Currently, neither of these are supported in the public code. These functionalities might be added later if there is enough interewst from the community (they exist in some of my internal research repos). At the moment, you have to extend the code yourself to do this.
 
 ## Reproducing results on public datasets
 The performance of GRU4Rec has been measured on multiple public datasets in [1,2,3,4]: Yoochoose/RSC15, Rees46, Coveo, RetailRocket and Diginetica.
